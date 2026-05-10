@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+package account;
+
+message UserPositions {
+  repeated common.Position positions = 1;
+}
+
+message BalanceChange {
+  common.Decimal change_amount = 1; // Сумма изменения (+ или -)
+  string reason = 2;               // Причина (DEPOSIT, ORDER_LOCK, TRADE_FILL и т.д.)
+  google.protobuf.Timestamp timestamp = 3; // Когда это произошло
+}
+
+message BalanceHistory {
+  repeated BalanceChange entries = 1;
+}
+
+message DepositRequest {
+  common.Decimal amount = 1;
+}
+
+message WithdrawRequest {
+  common.Decimal amount = 1;
+}
+
+service AccountService {
+  rpc GetBalance(google.protobuf.Empty)
+      returns (common.Decimal);
+
+  rpc GetPositions(google.protobuf.Empty)
+      returns (UserPositions);
+
+  rpc GetBalanceHistory(google.protobuf.Empty)
+      returns (BalanceHistory);
+
+  rpc Deposit(DepositRequest) returns (google.protobuf.Empty);
+  rpc Withdraw(WithdrawRequest) returns (google.protobuf.Empty);
+}

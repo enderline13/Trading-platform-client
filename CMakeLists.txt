@@ -9,8 +9,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Charts Protobuf Grpc)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Charts Protobuf Grpc)
 
 set(PROJECT_SOURCES
         main.cpp
@@ -23,26 +23,37 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(Trading_Client
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        tradingclient.h tradingclient.cpp
+        accountclient.h accountclient.cpp
+        marketclient.h marketclient.cpp
+        authclient.h authclient.cpp
+        adminclient.h adminclient.cpp
+        proto_utils.h
+        logindialog.h logindialog.cpp logindialog.ui
     )
-# Define target properties for Android with Qt 6 as:
-#    set_property(TARGET Trading_Client APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
-else()
-    if(ANDROID)
-        add_library(Trading_Client SHARED
-            ${PROJECT_SOURCES}
-        )
-# Define properties for Android with Qt 5 after find_package() calls as:
-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
-    else()
-        add_executable(Trading_Client
-            ${PROJECT_SOURCES}
-        )
-    endif()
 endif()
 
-target_link_libraries(Trading_Client PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+qt_add_protobuf(Trading_Client
+    PROTO_FILES
+        proto/account.proto
+        proto/admin.proto
+        proto/auth.proto
+        proto/common.proto
+        proto/market.proto
+        proto/trading.proto
+)
+
+qt_add_grpc(Trading_Client CLIENT
+    PROTO_FILES
+        proto/account.proto
+        proto/admin.proto
+        proto/auth.proto
+        proto/common.proto
+        proto/market.proto
+        proto/trading.proto
+)
+
+target_link_libraries(Trading_Client PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Charts Qt${QT_VERSION_MAJOR}::Protobuf Qt${QT_VERSION_MAJOR}::Grpc)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
