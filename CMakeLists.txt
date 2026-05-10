@@ -9,8 +9,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Charts Protobuf Grpc)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Charts Protobuf Grpc)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Charts Protobuf Grpc ProtobufWellKnownTypes)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Charts Protobuf Grpc ProtobufWellKnownTypes)
 
 set(PROJECT_SOURCES
         main.cpp
@@ -53,7 +53,7 @@ qt_add_grpc(Trading_Client CLIENT
         proto/trading.proto
 )
 
-target_link_libraries(Trading_Client PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Charts Qt${QT_VERSION_MAJOR}::Protobuf Qt${QT_VERSION_MAJOR}::Grpc)
+target_link_libraries(Trading_Client PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Charts Qt${QT_VERSION_MAJOR}::Protobuf Qt${QT_VERSION_MAJOR}::Grpc Qt${QT_VERSION_MAJOR}::ProtobufWellKnownTypes)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

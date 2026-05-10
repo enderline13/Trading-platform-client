@@ -16,7 +16,7 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QTabWidget" name="tabs">
+     <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
        <number>3</number>
       </property>
