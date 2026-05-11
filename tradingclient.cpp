@@ -63,3 +63,21 @@ void TradingClient::cancelOrder(uint64_t orderId)
                 }
             });
 }
+
+void TradingClient::getTradeHistory(const trading::TradeHistoryRequest &request)
+{
+    auto reply = m_client->GetTradeHistory(request, makeCallOptions(m_token));
+    auto replyPtr = std::shared_ptr<QGrpcCallReply>(reply.release());
+    connect(replyPtr.get(), &QGrpcCallReply::finished, this,
+            [this, replyPtr](const QGrpcStatus &status) {
+                if (status.isOk()) {
+                    auto resp = replyPtr->read<trading::Trades>();
+                    if (resp.has_value())
+                        emit tradeHistoryReceived(resp.value());
+                    else
+                        emit tradeHistoryError("Failed to read trade history");
+                } else {
+                    emit tradeHistoryError(status.message());
+                }
+            });
+}

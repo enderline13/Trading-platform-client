@@ -99,3 +99,46 @@ void MarketClient::getOrderBook(uint64_t instrumentId)
                 }
             });
 }
+
+void MarketClient::getCandles(const market::CandlesRequest &request)
+{
+    auto reply = m_client->GetCandles(request, makeCallOptions(m_token));
+    auto replyPtr = std::shared_ptr<QGrpcCallReply>(reply.release());
+    connect(replyPtr.get(), &QGrpcCallReply::finished, this,
+            [this, replyPtr](const QGrpcStatus &status) {
+                if (status.isOk()) {
+                    auto resp = replyPtr->read<market::Candles>();
+                    if (resp.has_value())
+                        emit candlesReceived(resp.value());
+                    else
+                        emit candlesError("Failed to read candles");
+                } else {
+                    emit candlesError(status.message());
+                }
+            });
+}
+
+void MarketClient::subscribeCandles(uint64_t instrumentId)
+{
+    if (m_candleStreams.count(instrumentId)) return;
+
+    market::CandlesRequest req;
+    req.setInstrumentId(instrumentId);
+    // Можно указать limit = 0 или не указывать – стрим вернёт только новые свечи
+    auto stream = m_client->StreamCandles(req, makeCallOptions(m_token));
+    auto streamPtr = std::shared_ptr<QGrpcServerStream>(stream.release());
+
+    connect(streamPtr.get(), &QGrpcServerStream::messageReceived, this,
+            [this, instrumentId, streamPtr]() {
+                auto msg = streamPtr->read<common::Candle>();
+                if (msg.has_value())
+                    emit candleUpdateReceived(instrumentId, msg.value());
+            });
+
+    connect(streamPtr.get(), &QGrpcServerStream::finished, this,
+            [this, instrumentId](const QGrpcStatus &) {
+                m_candleStreams.erase(instrumentId);
+            });
+
+    m_candleStreams[instrumentId] = streamPtr;
+}

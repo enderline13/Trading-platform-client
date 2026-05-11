@@ -26,6 +26,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_token = loginDlg.token();
     m_userRole = loginDlg.role();
+    m_currentUserId = loginDlg.userId();
 
     if (m_userRole != auth::User::Role::ADMIN) {
         int idx = ui->tabWidget->indexOf(ui->admin_tab);
@@ -136,6 +137,27 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onRefreshOrdersClicked);
     connect(ui->cancel_order_button, &QPushButton::clicked,
             this, &MainWindow::onCancelOrderClicked);
+
+
+    // History tab
+    connect(m_tradingClient, &TradingClient::tradeHistoryReceived,
+            this, &MainWindow::onTradeHistoryReceived);
+    connect(m_tradingClient, &TradingClient::tradeHistoryError,
+            this, &MainWindow::onTradeHistoryError);
+    connect(ui->refresh_history_button, &QPushButton::clicked,
+            this, &MainWindow::onRefreshHistoryClicked);
+
+    // --- Chart tab ---
+    connect(m_marketClient, &MarketClient::candlesReceived,
+            this, &MainWindow::onCandlesReceived);
+    connect(m_marketClient, &MarketClient::candlesError,
+            this, &MainWindow::onCandlesError);
+    connect(m_marketClient, &MarketClient::candleUpdateReceived,
+            this, &MainWindow::onCandleUpdate);
+    connect(ui->load_history_candes, &QPushButton::clicked,
+            this, &MainWindow::onLoadCandlesClicked);
+    connect(ui->live_chart_update, &QCheckBox::toggled,
+            this, &MainWindow::onLiveCheckBoxToggled);
 }
 
 MainWindow::~MainWindow()
@@ -167,6 +189,19 @@ void MainWindow::onInstrumentsLoaded(const market::InstrumentsList &instruments)
     for (const auto &inst : instruments.instruments()) {
         ui->order_by_instrument->addItem(inst.symbol(), QVariant::fromValue(inst.id_proto()));
     }
+
+    ui->instrument_select_for_history_button->clear();
+    ui->instrument_select_for_history_button->addItem("All", 0);
+    for (const auto &inst : instruments.instruments()) {
+        ui->instrument_select_for_history_button->addItem(inst.symbol(), QVariant::fromValue(inst.id_proto()));
+    }
+
+    ui->instrument_select_for_chart->clear();
+    for (const auto &inst : instruments.instruments()) {
+        ui->instrument_select_for_chart->addItem(inst.symbol(), QVariant::fromValue(inst.id_proto()));
+    }
+
+    setupChart();
 }
 
 void MainWindow::onOrderBookSnapshot(uint64_t instrumentId, const market::OrderBook &book)
@@ -404,5 +439,215 @@ void MainWindow::populateOrdersTable(const trading::Orders &orders)
         }());
         QDateTime dt = QDateTime::fromSecsSinceEpoch(o.createdAt().seconds());
         set(8, dt.toString("yyyy-MM-dd hh:mm:ss"));
+    }
+}
+
+void MainWindow::onRefreshHistoryClicked()
+{
+    trading::TradeHistoryRequest req;
+    uint64_t instId = ui->instrument_select_for_history_button->currentData().toULongLong();
+    if (instId != 0) {
+        req.setInstrumentId(instId);
+    }
+    m_tradingClient->getTradeHistory(req);
+}
+
+void MainWindow::onTradeHistoryReceived(const trading::Trades &trades)
+{
+    populateTradesTable(trades);
+}
+
+void MainWindow::onTradeHistoryError(const QString &error)
+{
+    qWarning() << "Trade history error:" << error;
+}
+
+void MainWindow::populateTradesTable(const trading::Trades &trades)
+{
+    const auto &list = trades.trades(); // или .trades_list() в зависимости от генерации
+    ui->trades_history_table->setRowCount(list.size());
+    for (int i = 0; i < list.size(); ++i) {
+        const auto &t = list[i];
+        auto set = [&](int col, const QString &text) {
+            ui->trades_history_table->setItem(i, col, new QTableWidgetItem(text));
+        };
+        set(0, QString::number(t.id_proto()));
+
+        // Символ инструмента
+        QString symbol = QString::number(t.instrumentId());
+        for (const auto &inst : m_cachedInstruments.instruments()) {
+            if (inst.id_proto() == t.instrumentId()) {
+                symbol = inst.symbol();
+                break;
+            }
+        }
+        set(1, symbol);
+
+        set(2, decimalToString(t.price()));
+        set(3, decimalToString(t.quantity()));
+
+        QDateTime dt = QDateTime::fromSecsSinceEpoch(t.executedAt().seconds());
+        set(4, dt.toString("yyyy-MM-dd hh:mm:ss"));
+
+        // Определяем роль
+        QString role = "—";
+        if (m_currentUserId != 0) {
+            if (t.buyOrderId() == m_currentUserId)
+                role = "Buyer";
+            else if (t.sellOrderId() == m_currentUserId)
+                role = "Seller";
+            // Иначе это сделка от имени бота (симуляции), и мы не участник
+        }
+        set(5, role);
+    }
+}
+
+void MainWindow::setupChart()
+{
+    m_chart = new QChart();
+    m_chart->setTitle("Candlestick Chart");
+    m_chart->setAnimationOptions(QChart::SeriesAnimations);
+
+    m_candleSeries = new QCandlestickSeries();
+    m_candleSeries->setName("Price");
+    m_candleSeries->setIncreasingColor(QColor(Qt::green));
+    m_candleSeries->setDecreasingColor(QColor(Qt::red));
+    m_chart->addSeries(m_candleSeries);
+
+    m_axisX = new QDateTimeAxis();
+    m_axisX->setFormat("dd.MM hh:mm");
+    m_axisX->setTitleText("Time");
+    m_chart->addAxis(m_axisX, Qt::AlignBottom);
+    m_candleSeries->attachAxis(m_axisX);
+
+    m_axisY = new QValueAxis();
+    m_axisY->setTitleText("Price");
+    m_axisY->setLabelFormat("%.2f");
+    m_chart->addAxis(m_axisY, Qt::AlignLeft);
+    m_candleSeries->attachAxis(m_axisY);
+
+    m_axisX->setRange(QDateTime::currentDateTime().addSecs(-3600),
+                      QDateTime::currentDateTime());
+    m_axisY->setRange(0.0, 100000.0);
+
+    ui->chart_view->setChart(m_chart);
+    ui->chart_view->setRenderHint(QPainter::Antialiasing);
+}
+
+void MainWindow::clearChart()
+{
+    m_candleSeries->clear();
+    // Не удаляем оси, просто очищаем свечи
+}
+
+void MainWindow::onLoadCandlesClicked()
+{
+    uint64_t instId = ui->instrument_select_for_chart->currentData().toULongLong();
+    if (instId == 0) return;
+
+    m_chartInstrumentId = instId;
+
+    market::CandlesRequest req;
+    req.setInstrumentId(instId);
+
+    QDateTime start = ui->start_candle_date->dateTime();
+    QDateTime end   = ui->last_candle_date->dateTime();
+
+    google::protobuf::Timestamp ts_begin = req.mutBegin();
+    ts_begin.setSeconds(start.toSecsSinceEpoch());
+    ts_begin.setNanos(0);
+
+    google::protobuf::Timestamp ts_end = req.mutEnd();
+    ts_end.setSeconds(end.toSecsSinceEpoch());
+    ts_end.setNanos(0);
+
+    // limit не задаём, пусть сервер пришлёт всё за период
+    m_marketClient->getCandles(req);
+}
+
+void MainWindow::onCandlesReceived(const market::Candles &candles)
+{
+    clearChart();   // удаляем только свечи, оси остаются
+
+    const auto &list = candles.candles();
+    if (list.isEmpty()) return;
+
+    for (const auto &c : list) {
+        QCandlestickSet *set = candleToSet(c, m_candleSeries);
+        m_candleSeries->append(set);
+    }
+
+    // Пересчитываем диапазоны
+    qreal minPrice = std::numeric_limits<qreal>::max();
+    qreal maxPrice = std::numeric_limits<qreal>::lowest();
+    qint64 minTime = std::numeric_limits<qint64>::max();
+    qint64 maxTime = std::numeric_limits<qint64>::lowest();
+    for (const auto &c : list) {
+        qint64 t = c.time().seconds() * 1000 + c.time().nanos() / 1e6;
+        qreal high = decimalToDouble(c.high());
+        qreal low  = decimalToDouble(c.low());
+        minTime = std::min(minTime, t);
+        maxTime = std::max(maxTime, t);
+        minPrice = std::min(minPrice, low);
+        maxPrice = std::max(maxPrice, high);
+    }
+    m_axisX->setRange(QDateTime::fromMSecsSinceEpoch(minTime),
+                      QDateTime::fromMSecsSinceEpoch(maxTime));
+    m_axisY->setRange(minPrice * 0.999, maxPrice * 1.001);
+}
+
+void MainWindow::onCandlesError(const QString &error)
+{
+    qWarning() << "Candles error:" << error;
+}
+
+void MainWindow::onCandleUpdate(uint64_t instrumentId, const common::Candle &candle)
+{
+    if (!m_liveEnabled || instrumentId != m_chartInstrumentId) return;
+
+    qint64 newTime = candle.time().seconds() * 1000 + candle.time().nanos() / 1e6;
+    QList<QCandlestickSet *> sets = m_candleSeries->sets();
+
+    if (!sets.isEmpty()) {
+        QCandlestickSet *last = sets.last();
+        if (last->timestamp() == newTime) {
+            // Обновляем последнюю свечу
+            last->setOpen(decimalToDouble(candle.open()));
+            last->setHigh(decimalToDouble(candle.high()));
+            last->setLow(decimalToDouble(candle.low()));
+            last->setClose(decimalToDouble(candle.close()));
+        } else {
+            // Новая свеча
+            QCandlestickSet *set = candleToSet(candle, m_candleSeries);
+            m_candleSeries->append(set);
+        }
+    } else {
+        QCandlestickSet *set = candleToSet(candle, m_candleSeries);
+        m_candleSeries->append(set);
+    }
+
+    // Расширяем ось X до новой свечи (и немного влево, если надо)
+    QDateTime currentMax = m_axisX->max();
+    QDateTime newMax = QDateTime::fromMSecsSinceEpoch(newTime);
+    if (newMax > currentMax) {
+        m_axisX->setMax(newMax);
+    }
+    // Подстраиваем ось Y
+    qreal high = decimalToDouble(candle.high());
+    qreal low  = decimalToDouble(candle.low());
+    if (high > m_axisY->max()) m_axisY->setMax(high);
+    if (low  < m_axisY->min()) m_axisY->setMin(low);
+}
+
+void MainWindow::onLiveCheckBoxToggled(bool checked)
+{
+    m_liveEnabled = checked;
+    if (checked) {
+        // Подписаться на стрим свечей для текущего инструмента графика
+        if (m_chartInstrumentId != 0)
+            m_marketClient->subscribeCandles(m_chartInstrumentId);
+    } else {
+        // Отписка не предусмотрена в MarketClient, но можно просто перестать обрабатывать сигналы.
+        // Для простоты оставим – лишние сообщения будут игнорироваться из-за проверки m_liveEnabled.
     }
 }

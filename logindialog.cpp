@@ -37,13 +37,13 @@ void LoginDialog::onRegisterClicked()
                          ui->lineEditPass->text());
 }
 
-void LoginDialog::onLoginSuccess(const QString &token, auth::User::Role role)
+void LoginDialog::onLoginSuccess(const QString &token, auth::User::Role role, uint64_t userId)
 {
     m_token = token;
     m_role = role;
+    m_userId = userId;
     accept();
 }
-
 void LoginDialog::onLoginError(const QString &error)
 {
     ui->labelError->setText(error);

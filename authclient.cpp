@@ -49,7 +49,7 @@ void AuthClient::login(const QString &username, const QString &password)
                                 emit loginError("Failed to read user info");
                                 return;
                             }
-                            emit loginSuccess(token, userResp->role());
+                            emit loginSuccess(token, userResp->role(), userResp->id_proto());
                         });
             });
 }
@@ -70,6 +70,25 @@ void AuthClient::registerUser(const QString &username, const QString &email,
                     emit registerSuccess();
                 } else {
                     emit registerError(status.message());
+                }
+            });
+}
+
+void AuthClient::getCurrentUser(const QString &token)
+{
+    google::protobuf::Empty empty;
+    auto reply = m_client->GetCurrentUserId(empty, makeCallOptions(token));
+    auto replyPtr = std::shared_ptr<QGrpcCallReply>(reply.release());
+    connect(replyPtr.get(), &QGrpcCallReply::finished, this,
+            [this, replyPtr](const QGrpcStatus &status) {
+                if (status.isOk()) {
+                    auto resp = replyPtr->read<auth::User>();
+                    if (resp.has_value())
+                        emit currentUserReceived(resp.value());
+                    else
+                        emit currentUserError("Failed to read user info");
+                } else {
+                    emit currentUserError(status.message());
                 }
             });
 }

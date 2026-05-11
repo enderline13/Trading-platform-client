@@ -19,8 +19,11 @@ public:
     void placeOrder(const trading::PlaceOrderRequest &request);
     void getOrders(const trading::GetOrdersRequest &request);
     void cancelOrder(uint64_t orderId);
+    void getTradeHistory(const trading::TradeHistoryRequest &request);
 
 signals:
+    void tradeHistoryReceived(const trading::Trades &trades);
+    void tradeHistoryError(const QString &error);
     void ordersReceived(const trading::Orders &orders);
     void ordersError(const QString &error);
     void orderCanceled(uint64_t orderId);

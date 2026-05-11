@@ -18,9 +18,12 @@ public:
     void login(const QString &username, const QString &password);
     void registerUser(const QString &username, const QString &email,
                       const QString &password);
+    void getCurrentUser(const QString &token);
 
 signals:
-    void loginSuccess(const QString &token, auth::User::Role role);
+    void currentUserReceived(const auth::User &user);
+    void currentUserError(const QString &error);
+    void loginSuccess(const QString &token, auth::User::Role role, uint64_t userId);
     void loginError(const QString &error);
 
     void registerSuccess();

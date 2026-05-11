@@ -18,11 +18,12 @@ public:
 
     QString token() const;
     auth::User::Role role() const;
+    uint64_t userId() const { return m_userId; }
 
 private slots:
     void onLoginClicked();
     void onRegisterClicked();
-    void onLoginSuccess(const QString &token, auth::User::Role role);
+    void onLoginSuccess(const QString &token, auth::User::Role role, uint64_t userId);
     void onLoginError(const QString &error);
     void onRegisterSuccess();
     void onRegisterError(const QString &error);
@@ -32,6 +33,7 @@ private:
     AuthClient *m_auth;
     QString m_token;
     auth::User::Role m_role{auth::User::Role::USER};
+    uint64_t m_userId = 0;
 };
 
 #endif // LOGINDIALOG_H
