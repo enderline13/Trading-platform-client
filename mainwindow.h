@@ -82,6 +82,7 @@ private slots:
     void onSystemStatusError(const QString &error);
     void onSystemStateChanged(bool running);
     void onSystemStateError(const QString &error);
+    void onAdminInstrumentSelected(int index);
 
 private:
     void populateOrdersTable(const trading::Orders &orders);
@@ -114,5 +115,9 @@ private:
 
     uint64_t m_chartInstrumentId = 0;
     bool m_liveEnabled = false;
+
+    QSet<uint64_t> m_userOrderIds;
+
+    void showError(const QString &message);
 };
 #endif // MAINWINDOW_H

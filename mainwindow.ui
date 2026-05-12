@@ -24,16 +24,6 @@
        <attribute name="title">
         <string>Торговля</string>
        </attribute>
-       <widget class="QComboBox" name="instrument_select">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>10</y>
-          <width>91</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
        <widget class="QWidget" name="gridLayoutWidget">
         <property name="geometry">
          <rect>
@@ -247,57 +237,48 @@
          <string/>
         </property>
        </widget>
-       <widget class="QLabel" name="label_7">
+       <widget class="QWidget" name="horizontalLayoutWidget">
         <property name="geometry">
          <rect>
-          <x>110</x>
-          <y>20</y>
-          <width>161</width>
-          <height>16</height>
+          <x>0</x>
+          <y>-10</y>
+          <width>661</width>
+          <height>80</height>
          </rect>
         </property>
-        <property name="text">
-         <string>Лучшая цена покупки:</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="best_bid_label">
-        <property name="geometry">
-         <rect>
-          <x>240</x>
-          <y>20</y>
-          <width>71</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_10">
-        <property name="geometry">
-         <rect>
-          <x>320</x>
-          <y>20</y>
-          <width>161</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Лучшая цена продажи:</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="best_ask_label">
-        <property name="geometry">
-         <rect>
-          <x>460</x>
-          <y>20</y>
-          <width>101</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QComboBox" name="instrument_select"/>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>Лучшая цена покупки:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="best_bid_label">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_10">
+           <property name="text">
+            <string>Лучшая цена продажи:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="best_ask_label">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </widget>
       <widget class="QWidget" name="orders_tab">
@@ -314,7 +295,7 @@
          </rect>
         </property>
         <property name="text">
-         <string>Статус</string>
+         <string>Статус:</string>
         </property>
        </widget>
        <widget class="QLabel" name="label_12">
@@ -327,14 +308,14 @@
          </rect>
         </property>
         <property name="text">
-         <string>Инструмент</string>
+         <string>Инструмент:</string>
         </property>
        </widget>
        <widget class="QComboBox" name="order_by_status">
         <property name="geometry">
          <rect>
           <x>60</x>
-          <y>30</y>
+          <y>26</y>
           <width>141</width>
           <height>24</height>
          </rect>
@@ -344,7 +325,7 @@
         <property name="geometry">
          <rect>
           <x>290</x>
-          <y>30</y>
+          <y>26</y>
           <width>111</width>
           <height>24</height>
          </rect>
@@ -409,7 +390,7 @@
         <property name="geometry">
          <rect>
           <x>510</x>
-          <y>30</y>
+          <y>26</y>
           <width>80</width>
           <height>24</height>
          </rect>
@@ -444,14 +425,14 @@
        <widget class="QLabel" name="label_13">
         <property name="geometry">
          <rect>
-          <x>80</x>
+          <x>110</x>
           <y>493</y>
-          <width>49</width>
+          <width>21</width>
           <height>16</height>
          </rect>
         </property>
         <property name="text">
-         <string>ID</string>
+         <string>ID:</string>
         </property>
        </widget>
       </widget>
@@ -464,7 +445,7 @@
          <rect>
           <x>120</x>
           <y>10</y>
-          <width>65</width>
+          <width>101</width>
           <height>24</height>
          </rect>
         </property>
@@ -473,7 +454,7 @@
         <property name="geometry">
          <rect>
           <x>40</x>
-          <y>10</y>
+          <y>13</y>
           <width>71</width>
           <height>16</height>
          </rect>
@@ -557,7 +538,7 @@
         <property name="geometry">
          <rect>
           <x>30</x>
-          <y>20</y>
+          <y>23</y>
           <width>71</width>
           <height>16</height>
          </rect>
@@ -656,11 +637,16 @@
        <widget class="QLabel" name="label_16">
         <property name="geometry">
          <rect>
-          <x>100</x>
-          <y>20</y>
+          <x>30</x>
+          <y>30</y>
           <width>61</width>
           <height>16</height>
          </rect>
+        </property>
+        <property name="font">
+         <font>
+          <bold>true</bold>
+         </font>
         </property>
         <property name="text">
          <string>БАЛАНС:</string>
@@ -669,11 +655,19 @@
        <widget class="QLabel" name="current_balance_label">
         <property name="geometry">
          <rect>
-          <x>170</x>
-          <y>20</y>
-          <width>111</width>
+          <x>100</x>
+          <y>30</y>
+          <width>131</width>
           <height>16</height>
          </rect>
+        </property>
+        <property name="font">
+         <font>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::Shape::Box</enum>
         </property>
         <property name="text">
          <string/>
@@ -695,7 +689,7 @@
        <widget class="QLabel" name="label_18">
         <property name="geometry">
          <rect>
-          <x>620</x>
+          <x>610</x>
           <y>80</y>
           <width>101</width>
           <height>16</height>
@@ -710,7 +704,7 @@
          <rect>
           <x>20</x>
           <y>110</y>
-          <width>311</width>
+          <width>361</width>
           <height>381</height>
          </rect>
         </property>
@@ -733,9 +727,9 @@
        <widget class="QTableWidget" name="balance_history_table">
         <property name="geometry">
          <rect>
-          <x>510</x>
+          <x>480</x>
           <y>110</y>
-          <width>341</width>
+          <width>371</width>
           <height>381</height>
          </rect>
         </property>
@@ -796,476 +790,289 @@
        <attribute name="title">
         <string>Администрирование</string>
        </attribute>
-       <widget class="QLabel" name="label_19">
-        <property name="geometry">
-         <rect>
-          <x>30</x>
-          <y>20</y>
-          <width>81</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Инструменты</string>
-        </property>
-       </widget>
-       <widget class="QComboBox" name="instrument_select_admin">
-        <property name="geometry">
-         <rect>
-          <x>130</x>
-          <y>20</y>
-          <width>121</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="instrument_id">
-        <property name="geometry">
-         <rect>
-          <x>20</x>
-          <y>70</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="instrument_symbol">
-        <property name="geometry">
-         <rect>
-          <x>170</x>
-          <y>70</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="instrument_name">
-        <property name="geometry">
-         <rect>
-          <x>20</x>
-          <y>120</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="instrument_tick_size">
-        <property name="geometry">
-         <rect>
-          <x>170</x>
-          <y>120</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="instrument_lot_size">
-        <property name="geometry">
-         <rect>
-          <x>20</x>
-          <y>170</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="instrument_is_active">
-        <property name="geometry">
-         <rect>
-          <x>170</x>
-          <y>170</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_20">
-        <property name="geometry">
-         <rect>
-          <x>60</x>
-          <y>50</y>
-          <width>49</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>ID</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_21">
-        <property name="geometry">
-         <rect>
-          <x>200</x>
-          <y>50</y>
-          <width>49</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Символ</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_22">
-        <property name="geometry">
-         <rect>
-          <x>198</x>
-          <y>100</y>
-          <width>61</width>
-          <height>20</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Шаг цены</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_23">
-        <property name="geometry">
-         <rect>
-          <x>38</x>
-          <y>150</y>
-          <width>71</width>
-          <height>20</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Шаг объема</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_24">
-        <property name="geometry">
-         <rect>
-          <x>200</x>
-          <y>150</y>
-          <width>49</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Активен</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_25">
-        <property name="geometry">
-         <rect>
-          <x>48</x>
-          <y>100</y>
-          <width>61</width>
-          <height>20</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Название</string>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="update_instrument_admin">
-        <property name="geometry">
-         <rect>
-          <x>20</x>
-          <y>220</y>
-          <width>151</width>
-          <height>24</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Обновить инструмент</string>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="user_id_balance">
-        <property name="geometry">
-         <rect>
-          <x>520</x>
-          <y>40</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="quantity_balance">
-        <property name="geometry">
-         <rect>
-          <x>660</x>
-          <y>40</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_26">
-        <property name="geometry">
-         <rect>
-          <x>520</x>
-          <y>20</y>
-          <width>91</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>ID пользователя</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_27">
-        <property name="geometry">
-         <rect>
-          <x>660</x>
-          <y>20</y>
-          <width>91</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Количество</string>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="add_balance_button">
-        <property name="geometry">
-         <rect>
-          <x>520</x>
-          <y>90</y>
-          <width>121</width>
-          <height>24</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Добавить баланс</string>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="user_id_positions">
-        <property name="geometry">
-         <rect>
-          <x>530</x>
-          <y>160</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="quantity_position">
-        <property name="geometry">
-         <rect>
-          <x>670</x>
-          <y>200</y>
-          <width>113</width>
-          <height>24</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_28">
-        <property name="geometry">
-         <rect>
-          <x>540</x>
-          <y>140</y>
-          <width>91</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>ID пользователя</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_29">
-        <property name="geometry">
-         <rect>
-          <x>680</x>
-          <y>140</y>
-          <width>91</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>ID инструмента</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_30">
-        <property name="geometry">
-         <rect>
-          <x>690</x>
-          <y>180</y>
-          <width>91</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Количество</string>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="add_position_button">
-        <property name="geometry">
-         <rect>
-          <x>530</x>
-          <y>200</y>
-          <width>121</width>
-          <height>24</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Добавить позицию</string>
-        </property>
-       </widget>
        <widget class="QLabel" name="label_31">
         <property name="geometry">
          <rect>
-          <x>360</x>
-          <y>270</y>
+          <x>390</x>
+          <y>310</y>
           <width>111</width>
           <height>16</height>
          </rect>
         </property>
-        <property name="text">
-         <string>Статус системы</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_32">
-        <property name="geometry">
-         <rect>
-          <x>250</x>
-          <y>290</y>
-          <width>91</width>
-          <height>16</height>
-         </rect>
+        <property name="font">
+         <font>
+          <bold>true</bold>
+         </font>
         </property>
         <property name="text">
-         <string>Статус торгов</string>
+         <string>СТАТУС СИСТЕМЫ</string>
         </property>
        </widget>
-       <widget class="QLabel" name="label_33">
+       <widget class="QWidget" name="gridLayoutWidget_3">
         <property name="geometry">
          <rect>
-          <x>430</x>
-          <y>290</y>
-          <width>111</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Активные ордера</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_34">
-        <property name="geometry">
-         <rect>
-          <x>220</x>
+          <x>210</x>
           <y>340</y>
-          <width>161</width>
-          <height>16</height>
+          <width>461</width>
+          <height>161</height>
          </rect>
         </property>
-        <property name="text">
-         <string>Количество пользователей</string>
-        </property>
+        <layout class="QGridLayout" name="gridLayout_3">
+         <item row="1" column="0">
+          <widget class="QLabel" name="trading_status_label">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLabel" name="label_33">
+           <property name="text">
+            <string>Активные ордера</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_32">
+           <property name="text">
+            <string>Статус торгов</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QLabel" name="system_version_label">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="users_count_label">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLabel" name="label_35">
+           <property name="text">
+            <string>Версия системы</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLabel" name="active_orders_label">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="label_36">
+           <property name="text">
+            <string>Время работы</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_34">
+           <property name="text">
+            <string>Количество пользователей</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="0">
+          <widget class="QLabel" name="uptime_label">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="1">
+          <widget class="QPushButton" name="start_stop_trading_button">
+           <property name="text">
+            <string>Начать/остановить торги</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
-       <widget class="QLabel" name="label_35">
+       <widget class="QWidget" name="formLayoutWidget">
         <property name="geometry">
          <rect>
-          <x>430</x>
-          <y>340</y>
-          <width>161</width>
-          <height>16</height>
+          <x>20</x>
+          <y>10</y>
+          <width>281</width>
+          <height>291</height>
          </rect>
         </property>
-        <property name="text">
-         <string>Версия системы</string>
-        </property>
+        <layout class="QFormLayout" name="formLayout">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_19">
+           <property name="text">
+            <string>Инструменты</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QComboBox" name="instrument_select_admin"/>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_20">
+           <property name="text">
+            <string>ID</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="instrument_id"/>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_21">
+           <property name="text">
+            <string>Символ</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="instrument_symbol"/>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_25">
+           <property name="text">
+            <string>Название</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QLineEdit" name="instrument_name"/>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="label_22">
+           <property name="text">
+            <string>Шаг цены</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="QLineEdit" name="instrument_tick_size"/>
+         </item>
+         <item row="5" column="0">
+          <widget class="QLabel" name="label_23">
+           <property name="text">
+            <string>Шаг объема</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="1">
+          <widget class="QLineEdit" name="instrument_lot_size"/>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="label_24">
+           <property name="text">
+            <string>Активен</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <widget class="QLineEdit" name="instrument_is_active"/>
+         </item>
+         <item row="7" column="1">
+          <widget class="QPushButton" name="update_instrument_admin">
+           <property name="text">
+            <string>Добавить/Обновить инструмент</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
-       <widget class="QLabel" name="label_36">
+       <widget class="QWidget" name="formLayoutWidget_2">
         <property name="geometry">
          <rect>
-          <x>230</x>
-          <y>390</y>
-          <width>161</width>
-          <height>16</height>
+          <x>550</x>
+          <y>10</y>
+          <width>341</width>
+          <height>111</height>
          </rect>
         </property>
-        <property name="text">
-         <string>Время работы</string>
-        </property>
+        <layout class="QFormLayout" name="formLayout_2">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_26">
+           <property name="text">
+            <string>ID пользователя</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="user_id_balance"/>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_27">
+           <property name="text">
+            <string>Количество</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="quantity_balance"/>
+         </item>
+         <item row="2" column="1">
+          <widget class="QPushButton" name="add_balance_button">
+           <property name="text">
+            <string>Добавить баланс</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
-       <widget class="QLabel" name="trading_status_label">
+       <widget class="QWidget" name="formLayoutWidget_3">
         <property name="geometry">
          <rect>
-          <x>260</x>
-          <y>310</y>
-          <width>49</width>
-          <height>16</height>
+          <x>550</x>
+          <y>130</y>
+          <width>341</width>
+          <height>131</height>
          </rect>
         </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-       <widget class="QLabel" name="users_count_label">
-        <property name="geometry">
-         <rect>
-          <x>260</x>
-          <y>360</y>
-          <width>49</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-       <widget class="QLabel" name="system_version_label">
-        <property name="geometry">
-         <rect>
-          <x>440</x>
-          <y>360</y>
-          <width>49</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-       <widget class="QLabel" name="uptime_label">
-        <property name="geometry">
-         <rect>
-          <x>250</x>
-          <y>420</y>
-          <width>49</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="start_stop_trading_button">
-        <property name="geometry">
-         <rect>
-          <x>400</x>
-          <y>410</y>
-          <width>161</width>
-          <height>24</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Начать/остановить торги</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="active_orders_label">
-        <property name="geometry">
-         <rect>
-          <x>450</x>
-          <y>310</y>
-          <width>49</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-       <widget class="QComboBox" name="instrument_id_positions">
-        <property name="geometry">
-         <rect>
-          <x>690</x>
-          <y>160</y>
-          <width>65</width>
-          <height>24</height>
-         </rect>
-        </property>
+        <layout class="QFormLayout" name="formLayout_3">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_28">
+           <property name="text">
+            <string>ID пользователя</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="user_id_positions"/>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_29">
+           <property name="text">
+            <string>ID инструмента</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QComboBox" name="instrument_id_positions"/>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_30">
+           <property name="text">
+            <string>Количество</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="quantity_position"/>
+         </item>
+         <item row="3" column="1">
+          <widget class="QPushButton" name="add_position_button">
+           <property name="text">
+            <string>Добавить позицию</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </widget>
      </widget>

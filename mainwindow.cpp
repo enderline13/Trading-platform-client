@@ -8,6 +8,7 @@
 #include "logindialog.h"
 
 #include <QGrpcChannelOptions>
+#include <QMessageBox>
 
 #include "proto_utils.h"
 
@@ -16,6 +17,15 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    ui->bids->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->asks->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->latest_trades->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->orders_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->trades_history_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->user_positions_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->balance_history_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
 
     auto channel = std::make_shared<QGrpcHttp2Channel>(QUrl("http://localhost:50051"));
     QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
@@ -34,6 +44,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_token = loginDlg.token();
     m_userRole = loginDlg.role();
     m_currentUserId = loginDlg.userId();
+    // Загружаем все ордера пользователя, чтобы кэшировать их ID
 
     if (m_userRole != auth::User::Role::ADMIN) {
         int idx = ui->tabWidget->indexOf(ui->admin_tab);
@@ -47,6 +58,9 @@ MainWindow::MainWindow(QWidget *parent)
     m_accountClient = new AccountClient(channel, m_token, this);
     m_adminClient = new AdminClient(channel, m_token, this);
 
+    trading::GetOrdersRequest allOrdersReq;
+    // без фильтров – получим ордера всех статусов и по всем инструментам
+    m_tradingClient->getOrders(allOrdersReq);
     // Сигналы MarketClient
     connect(m_marketClient, &MarketClient::instrumentsListed,
             this, &MainWindow::onInstrumentsLoaded);
@@ -122,13 +136,13 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onCancelError);
 
     // Заполняем фильтры
-    ui->order_by_status->addItem("All", QVariant::fromValue(common::Order::OrderStatus::NEW)); // или специальное значение
+    ui->order_by_status->addItem("Все", QVariant::fromValue(common::Order::OrderStatus::NEW)); // или специальное значение
     // Заполняем статусы
-    QStringList statuses = {"All", "NEW", "PARTIALLY_FILLED", "FILLED", "CANCELED", "REJECTED"};
+    QStringList statuses = {"Все", "NEW", "PARTIALLY_FILLED", "FILLED", "CANCELED", "REJECTED"};
     // Можно сохранить enum-значения через QVariant, для "All" -1
     // Заполним вручную с userData
     ui->order_by_status->clear();
-    ui->order_by_status->addItem("All", -1);
+    ui->order_by_status->addItem("Все", -1);
     ui->order_by_status->addItem("NEW", static_cast<int>(common::Order::OrderStatus::NEW));
     ui->order_by_status->addItem("PARTIALLY_FILLED", static_cast<int>(common::Order::OrderStatus::PARTIALLY_FILLED));
     ui->order_by_status->addItem("FILLED", static_cast<int>(common::Order::OrderStatus::FILLED));
@@ -242,11 +256,19 @@ MainWindow::MainWindow(QWidget *parent)
                     onAdminTabActivated();
                 }
             });
+
+    connect(ui->instrument_select_admin, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MainWindow::onAdminInstrumentSelected);
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::showError(const QString &message)
+{
+    QMessageBox::critical(this, "Предупреждение", message);
 }
 
 void MainWindow::onInstrumentsLoaded(const market::InstrumentsList &instruments)
@@ -269,13 +291,13 @@ void MainWindow::onInstrumentsLoaded(const market::InstrumentsList &instruments)
 
     // Заполняем фильтр инструментов вкладки Orders
     ui->order_by_instrument->clear();
-    ui->order_by_instrument->addItem("All", 0);
+    ui->order_by_instrument->addItem("Все", 0);
     for (const auto &inst : instruments.instruments()) {
         ui->order_by_instrument->addItem(inst.symbol(), QVariant::fromValue(inst.id_proto()));
     }
 
     ui->instrument_select_for_history_button->clear();
-    ui->instrument_select_for_history_button->addItem("All", 0);
+    ui->instrument_select_for_history_button->addItem("Все", 0);
     for (const auto &inst : instruments.instruments()) {
         ui->instrument_select_for_history_button->addItem(inst.symbol(), QVariant::fromValue(inst.id_proto()));
     }
@@ -288,9 +310,11 @@ void MainWindow::onInstrumentsLoaded(const market::InstrumentsList &instruments)
     setupChart();
 
     ui->instrument_select_admin->clear();
+    ui->instrument_select_admin->addItem("Новый инструмент", QVariant::fromValue(uint64_t(0)));
     for (const auto &inst : instruments.instruments()) {
         ui->instrument_select_admin->addItem(inst.symbol(), QVariant::fromValue(inst.id_proto()));
     }
+
     ui->instrument_id_positions->clear();
     for (const auto &inst : instruments.instruments()) {
         ui->instrument_id_positions->addItem(inst.symbol(), QVariant::fromValue(inst.id_proto()));
@@ -463,6 +487,11 @@ void MainWindow::onCancelOrderClicked()
 
 void MainWindow::onOrdersReceived(const trading::Orders &orders)
 {
+    m_userOrderIds.clear();
+    for (const auto &order : orders.orders()) {
+        m_userOrderIds.insert(order.id_proto());
+    }
+
     populateOrdersTable(orders);
 
     // Заполняем комбобокс для отмены только активными ордерами (NEW, PARTIALLY_FILLED)
@@ -476,7 +505,7 @@ void MainWindow::onOrdersReceived(const trading::Orders &orders)
 
 void MainWindow::onOrdersError(const QString &error)
 {
-    qWarning() << "Orders error:" << error;
+    showError("Ошибка ордера:" + error);
 }
 
 void MainWindow::onOrderCanceled(uint64_t orderId)
@@ -487,7 +516,7 @@ void MainWindow::onOrderCanceled(uint64_t orderId)
 
 void MainWindow::onCancelError(const QString &error)
 {
-    qWarning() << "Cancel error:" << error;
+    showError("Ошибка во время отмены:" + error);
 }
 
 void MainWindow::populateOrdersTable(const trading::Orders &orders)
@@ -552,7 +581,7 @@ void MainWindow::onTradeHistoryReceived(const trading::Trades &trades)
 
 void MainWindow::onTradeHistoryError(const QString &error)
 {
-    qWarning() << "Trade history error:" << error;
+    showError("Ошибка истории сделок:" + error);
 }
 
 void MainWindow::populateTradesTable(const trading::Trades &trades)
@@ -584,12 +613,13 @@ void MainWindow::populateTradesTable(const trading::Trades &trades)
 
         // Определяем роль
         QString role = "—";
-        if (m_currentUserId != 0) {
-            if (t.buyOrderId() == m_currentUserId)
-                role = "Buyer";
-            else if (t.sellOrderId() == m_currentUserId)
-                role = "Seller";
-            // Иначе это сделка от имени бота (симуляции), и мы не участник
+        if (!m_userOrderIds.isEmpty()) {
+            // Если buy_order_id принадлежит нам, значит мы покупатель
+            if (m_userOrderIds.contains(t.buyOrderId()))
+                role = "Покупатель";
+            else if (m_userOrderIds.contains(t.sellOrderId()))
+                role = "Продавец";
+            // (второе условие можно просто else, т.к. один из ордеров наш)
         }
         set(5, role);
     }
@@ -698,7 +728,7 @@ void MainWindow::onCandlesReceived(const market::Candles &candles)
 
 void MainWindow::onCandlesError(const QString &error)
 {
-    qWarning() << "Candles error:" << error;
+    showError("Ошибка свеч:" + error);
 }
 
 void MainWindow::onCandleUpdate(uint64_t instrumentId, const common::Candle &candle)
@@ -841,12 +871,12 @@ void MainWindow::onWithdrawSuccess()
 
 void MainWindow::onDepositError(const QString &error)
 {
-    qWarning() << "Deposit error:" << error;
+    showError("Ошибка депозита:" + error);
 }
 
 void MainWindow::onWithdrawError(const QString &error)
 {
-    qWarning() << "Withdraw error:" << error;
+    showError("Ошибка вывода:" + error);
 }
 
 void MainWindow::onPortfolioTabActivated()
@@ -856,19 +886,19 @@ void MainWindow::onPortfolioTabActivated()
 
 void MainWindow::onBalanceError(const QString &error)
 {
-    qWarning() << "Balance error:" << error;
-    ui->current_balance_label->setText("Error");
+    showError("Ошибка получения баланса:" + error);
+    ui->current_balance_label->setText("Ошибка");
 }
 
 void MainWindow::onPositionsError(const QString &error)
 {
-    qWarning() << "Positions error:" << error;
+    showError("Ошибка получения позиций:" + error);
     // Очищаем таблицу или показываем сообщение, если нужно
 }
 
 void MainWindow::onBalanceHistoryError(const QString &error)
 {
-    qWarning() << "Balance history error:" << error;
+    showError("Ошибка получения истории баланса:" + error);
 }
 
 void MainWindow::onAdminTabActivated()
@@ -956,27 +986,57 @@ void MainWindow::onInstrumentUpdated() {
     m_adminClient->getSystemStatus();
 }
 
-void MainWindow::onInstrumentError(const QString &error) { qWarning() << "Instrument error:" << error; }
+void MainWindow::onInstrumentError(const QString &error) { showError("Ошибка получения инструмента:" + error); }
 void MainWindow::onFundSuccess() { qDebug() << "Fund success"; m_adminClient->getSystemStatus(); }
-void MainWindow::onFundError(const QString &error) { qWarning() << "Fund error:" << error; }
+void MainWindow::onFundError(const QString &error) { showError("Ошибка добавления баланса:" + error); }
 void MainWindow::onPositionAdded() { qDebug() << "Position added"; }
-void MainWindow::onPositionError(const QString &error) { qWarning() << "Position error:" << error; }
+void MainWindow::onPositionError(const QString &error) { showError("Ошибка во время получения позиции:" + error); }
 
 void MainWindow::onSystemStatusReceived(const admin::SystemStatus &status)
 {
-    ui->trading_status_label->setText(status.isRunning() ? "Running" : "Stopped");
+    ui->trading_status_label->setText(status.isRunning() ? "Работает" : "Остановлен");
     ui->active_orders_label->setText(QString::number(status.activeOrdersCount()));
     ui->users_count_label->setText(QString::number(status.totalUsersCount()));
     ui->system_version_label->setText(status.serverVersion().isEmpty() ? "1.0.0-rc1" : status.serverVersion());
-    ui->uptime_label->setText(status.uptime().isEmpty() ? "0 hours" : status.uptime());
+    ui->uptime_label->setText(status.uptime().isEmpty() ? "0 часов" : status.uptime());
 
     m_adminTradingRunning = status.isRunning();
-    ui->start_stop_trading_button->setText(status.isRunning() ? "Stop Trading" : "Start Trading");
+    ui->start_stop_trading_button->setText(status.isRunning() ? "Остановить торги" : "Начать торги");
 }
 
-void MainWindow::onSystemStatusError(const QString &error) { qWarning() << "System status error:" << error; }
+void MainWindow::onSystemStatusError(const QString &error) { showError("Ошибка получения статуса системы:" + error); }
 void MainWindow::onSystemStateChanged(bool running)
 {
     m_adminClient->getSystemStatus(); // обновим метки
 }
-void MainWindow::onSystemStateError(const QString &error) { qWarning() << "System state error:" << error; }
+void MainWindow::onSystemStateError(const QString &error) { showError("Ошибка получения состояния системы:" + error); }
+
+void MainWindow::onAdminInstrumentSelected(int index)
+{
+    if (index < 0) return;
+    uint64_t id = ui->instrument_select_admin->currentData().toULongLong();
+
+    ui->instrument_id->setText(id > 0 ? QString::number(id) : QString());
+
+    if (id == 0) {
+        // Очищаем поля для нового инструмента
+        ui->instrument_symbol->clear();
+        ui->instrument_name->clear();
+        ui->instrument_tick_size->clear();
+        ui->instrument_lot_size->clear();
+        ui->instrument_is_active->setText("1");   // по умолчанию активен
+        return;
+    }
+
+    // Ищем инструмент в кэше
+    for (const auto &inst : m_cachedInstruments.instruments()) {
+        if (inst.id_proto() == id) {
+            ui->instrument_symbol->setText(inst.symbol());
+            ui->instrument_name->setText(inst.name());
+            ui->instrument_tick_size->setText(decimalToString(inst.tickSize()));
+            ui->instrument_lot_size->setText(decimalToString(inst.lotSize()));
+            ui->instrument_is_active->setText(inst.isActive() ? "1" : "0");
+            return;
+        }
+    }
+}
