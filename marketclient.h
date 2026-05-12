@@ -27,6 +27,7 @@ public:
     void getOrderBook(uint64_t instrumentId);
     void getCandles(const market::CandlesRequest &request);
     void subscribeCandles(uint64_t instrumentId);
+    void unsubscribeCandles(uint64_t instrumentId);
 
 signals:
     void candlesReceived(const market::Candles &candles);

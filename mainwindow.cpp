@@ -7,6 +7,8 @@
 #include "authclient.h"
 #include "logindialog.h"
 
+#include <QGrpcChannelOptions>
+
 #include "proto_utils.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -16,6 +18,11 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     auto channel = std::make_shared<QGrpcHttp2Channel>(QUrl("http://localhost:50051"));
+    QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
+    sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    QGrpcChannelOptions opt;
+    opt.setSslConfiguration(sslConfig);
+    channel->setChannelOptions(opt);
 
     AuthClient auth(channel);
     LoginDialog loginDlg(&auth, this);
@@ -37,6 +44,8 @@ MainWindow::MainWindow(QWidget *parent)
     // Инициализируем клиентов
     m_marketClient = new MarketClient(channel, m_token, this);
     m_tradingClient = new TradingClient(channel, m_token, this);
+    m_accountClient = new AccountClient(channel, m_token, this);
+    m_adminClient = new AdminClient(channel, m_token, this);
 
     // Сигналы MarketClient
     connect(m_marketClient, &MarketClient::instrumentsListed,
@@ -126,12 +135,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->order_by_status->addItem("CANCELED", static_cast<int>(common::Order::OrderStatus::CANCELED));
     ui->order_by_status->addItem("REJECTED", static_cast<int>(common::Order::OrderStatus::REJECTED));
 
-    // Заполняем фильтр по инструменту (после получения списка инструментов)
-    // Для этого можно переиспользовать m_instrumentsList, сохранив его.
-    // Предположим, мы сохраним список в член класса.
-    // Добавим в mainwindow.h переменную market::InstrumentsList m_cachedInstruments;
-    // Тогда после получения инструментов в onInstrumentsLoaded заполним комбобокс:
-    // ...
 
     connect(ui->refresh_orders_button, &QPushButton::clicked,
             this, &MainWindow::onRefreshOrdersClicked);
@@ -158,6 +161,87 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onLoadCandlesClicked);
     connect(ui->live_chart_update, &QCheckBox::toggled,
             this, &MainWindow::onLiveCheckBoxToggled);
+
+
+    // --- Portfolio tab ---
+    connect(m_accountClient, &AccountClient::balanceReceived,
+            this, &MainWindow::onBalanceReceived);
+    connect(m_accountClient, &AccountClient::balanceError,
+            this, &MainWindow::onBalanceError);   // вместо лямбды
+
+    connect(m_accountClient, &AccountClient::positionsReceived,
+            this, &MainWindow::onPositionsReceived);
+    connect(m_accountClient, &AccountClient::positionsError,
+            this, &MainWindow::onPositionsError); // вместо лямбды
+
+    connect(m_accountClient, &AccountClient::balanceHistoryReceived,
+            this, &MainWindow::onBalanceHistoryReceived);
+    connect(m_accountClient, &AccountClient::balanceHistoryError,
+            this, &MainWindow::onBalanceHistoryError); // вместо лямбды
+
+    connect(m_accountClient, &AccountClient::depositSuccess,
+            this, &MainWindow::onDepositSuccess);
+    connect(m_accountClient, &AccountClient::depositError,
+            this, &MainWindow::onDepositError);
+    connect(m_accountClient, &AccountClient::withdrawSuccess,
+            this, &MainWindow::onWithdrawSuccess);
+    connect(m_accountClient, &AccountClient::withdrawError,
+            this, &MainWindow::onWithdrawError);
+
+    connect(ui->deposit_button, &QPushButton::clicked,
+            this, &MainWindow::onDepositClicked);
+    connect(ui->withdraw_button, &QPushButton::clicked,
+            this, &MainWindow::onWithdrawClicked);
+
+    // Автообновление при открытии вкладки Portfolio
+    connect(ui->tabWidget, &QTabWidget::currentChanged, this,
+            [this](int index) {
+                if (ui->tabWidget->widget(index) == ui->portfolio_tab) {
+                    m_accountClient->getBalance();
+                    m_accountClient->getPositions();
+                    m_accountClient->getBalanceHistory();
+                }
+            });
+
+    // --- Admin tab ---
+    connect(m_adminClient, &AdminClient::instrumentAdded,
+            this, &MainWindow::onInstrumentAdded);
+    connect(m_adminClient, &AdminClient::instrumentUpdated,
+            this, &MainWindow::onInstrumentUpdated);
+    connect(m_adminClient, &AdminClient::instrumentError,
+            this, &MainWindow::onInstrumentError);
+    connect(m_adminClient, &AdminClient::fundSuccess,
+            this, &MainWindow::onFundSuccess);
+    connect(m_adminClient, &AdminClient::fundError,
+            this, &MainWindow::onFundError);
+    connect(m_adminClient, &AdminClient::positionAdded,
+            this, &MainWindow::onPositionAdded);
+    connect(m_adminClient, &AdminClient::positionError,
+            this, &MainWindow::onPositionError);
+    connect(m_adminClient, &AdminClient::systemStatusReceived,
+            this, &MainWindow::onSystemStatusReceived);
+    connect(m_adminClient, &AdminClient::systemStatusError,
+            this, &MainWindow::onSystemStatusError);
+    connect(m_adminClient, &AdminClient::systemStateChanged,
+            this, &MainWindow::onSystemStateChanged);
+    connect(m_adminClient, &AdminClient::systemStateError,
+            this, &MainWindow::onSystemStateError);
+
+    connect(ui->update_instrument_admin, &QPushButton::clicked,
+            this, &MainWindow::onUpdateInstrumentClicked);
+    connect(ui->add_balance_button, &QPushButton::clicked,
+            this, &MainWindow::onAddBalanceClicked);
+    connect(ui->add_position_button, &QPushButton::clicked,
+            this, &MainWindow::onAddPositionClicked);
+    connect(ui->start_stop_trading_button, &QPushButton::clicked,
+            this, &MainWindow::onStartStopTradingClicked);
+
+    connect(ui->tabWidget, &QTabWidget::currentChanged, this,
+            [this](int index) {
+                if (ui->tabWidget->widget(index) == ui->admin_tab) {
+                    onAdminTabActivated();
+                }
+            });
 }
 
 MainWindow::~MainWindow()
@@ -202,6 +286,15 @@ void MainWindow::onInstrumentsLoaded(const market::InstrumentsList &instruments)
     }
 
     setupChart();
+
+    ui->instrument_select_admin->clear();
+    for (const auto &inst : instruments.instruments()) {
+        ui->instrument_select_admin->addItem(inst.symbol(), QVariant::fromValue(inst.id_proto()));
+    }
+    ui->instrument_id_positions->clear();
+    for (const auto &inst : instruments.instruments()) {
+        ui->instrument_id_positions->addItem(inst.symbol(), QVariant::fromValue(inst.id_proto()));
+    }
 }
 
 void MainWindow::onOrderBookSnapshot(uint64_t instrumentId, const market::OrderBook &book)
@@ -545,6 +638,13 @@ void MainWindow::onLoadCandlesClicked()
     uint64_t instId = ui->instrument_select_for_chart->currentData().toULongLong();
     if (instId == 0) return;
 
+    // Останавливаем live-обновления и отписываемся от стрима
+    if (m_liveEnabled) {
+        ui->live_chart_update->setChecked(false);  // вызовет onLiveCheckBoxToggled(false)
+        m_liveEnabled = false;
+    }
+    m_marketClient->unsubscribeCandles(m_chartInstrumentId);
+
     m_chartInstrumentId = instId;
 
     market::CandlesRequest req;
@@ -553,11 +653,11 @@ void MainWindow::onLoadCandlesClicked()
     QDateTime start = ui->start_candle_date->dateTime();
     QDateTime end   = ui->last_candle_date->dateTime();
 
-    google::protobuf::Timestamp ts_begin = req.mutBegin();
+    google::protobuf::Timestamp& ts_begin = req.mutBegin();
     ts_begin.setSeconds(start.toSecsSinceEpoch());
     ts_begin.setNanos(0);
 
-    google::protobuf::Timestamp ts_end = req.mutEnd();
+    google::protobuf::Timestamp& ts_end = req.mutEnd();
     ts_end.setSeconds(end.toSecsSinceEpoch());
     ts_end.setNanos(0);
 
@@ -651,3 +751,232 @@ void MainWindow::onLiveCheckBoxToggled(bool checked)
         // Для простоты оставим – лишние сообщения будут игнорироваться из-за проверки m_liveEnabled.
     }
 }
+
+void MainWindow::onBalanceReceived(const common::Decimal &balance)
+{
+    ui->current_balance_label->setText(decimalToString(balance));
+    // После баланса запрашиваем позиции
+    m_accountClient->getPositions();
+}
+
+void MainWindow::onPositionsReceived(const account::UserPositions &positions)
+{
+    ui->user_positions_table->setRowCount(positions.positions().size());
+    for (int i = 0; i < positions.positions().size(); ++i) {
+        const auto &pos = positions.positions().at(i);
+        // Инструмент
+        QString symbol;
+        for (const auto &inst : m_cachedInstruments.instruments()) {
+            if (inst.id_proto() == pos.instrumentId()) {
+                symbol = inst.symbol();
+                break;
+            }
+        }
+        if (symbol.isEmpty()) symbol = QString::number(pos.instrumentId());
+        ui->user_positions_table->setItem(i, 0, new QTableWidgetItem(symbol));
+        ui->user_positions_table->setItem(i, 1, new QTableWidgetItem(decimalToString(pos.quantity())));
+        ui->user_positions_table->setItem(i, 2, new QTableWidgetItem(decimalToString(pos.averagePrice())));
+    }
+
+    m_accountClient->getBalanceHistory();
+}
+
+void MainWindow::onBalanceHistoryReceived(const account::BalanceHistory &history)
+{
+    ui->balance_history_table->setRowCount(history.entries().size());
+    for (int i = 0; i < history.entries().size(); ++i) {
+        const auto &entry = history.entries().at(i);
+        ui->balance_history_table->setItem(i, 0, new QTableWidgetItem(decimalToString(entry.changeAmount())));
+        ui->balance_history_table->setItem(i, 1, new QTableWidgetItem(entry.reason()));
+        // время
+        QDateTime dt = QDateTime::fromSecsSinceEpoch(entry.timestamp().seconds());
+        ui->balance_history_table->setItem(i, 2, new QTableWidgetItem(dt.toString("yyyy-MM-dd hh:mm:ss")));
+    }
+}
+
+void MainWindow::onDepositClicked()
+{
+    QString text = ui->money_sum_edit->text();
+    QStringList parts = text.split('.');
+    int units = parts.value(0).toInt();
+    int nanos = 0;
+    if (parts.size() > 1) {
+        QString frac = parts[1].leftJustified(9, '0');
+        nanos = frac.left(9).toInt();
+    }
+    account::DepositRequest req;
+    req.mutAmount().setUnits(units);
+    req.mutAmount().setNanos(nanos);
+    m_accountClient->deposit(req);
+}
+
+void MainWindow::onWithdrawClicked()
+{
+    QString text = ui->money_sum_edit->text();
+    QStringList parts = text.split('.');
+    int units = parts.value(0).toInt();
+    int nanos = 0;
+    if (parts.size() > 1) {
+        QString frac = parts[1].leftJustified(9, '0');
+        nanos = frac.left(9).toInt();
+    }
+    account::WithdrawRequest req;
+    req.mutAmount().setUnits(units);
+    req.mutAmount().setNanos(nanos);
+    m_accountClient->withdraw(req);
+}
+
+void MainWindow::onDepositSuccess()
+{
+    // Обновим баланс и историю
+    m_accountClient->getBalance();
+    m_accountClient->getBalanceHistory();
+}
+
+void MainWindow::onWithdrawSuccess()
+{
+    m_accountClient->getBalance();
+    m_accountClient->getBalanceHistory();
+}
+
+void MainWindow::onDepositError(const QString &error)
+{
+    qWarning() << "Deposit error:" << error;
+}
+
+void MainWindow::onWithdrawError(const QString &error)
+{
+    qWarning() << "Withdraw error:" << error;
+}
+
+void MainWindow::onPortfolioTabActivated()
+{
+   m_accountClient->getBalance();
+}
+
+void MainWindow::onBalanceError(const QString &error)
+{
+    qWarning() << "Balance error:" << error;
+    ui->current_balance_label->setText("Error");
+}
+
+void MainWindow::onPositionsError(const QString &error)
+{
+    qWarning() << "Positions error:" << error;
+    // Очищаем таблицу или показываем сообщение, если нужно
+}
+
+void MainWindow::onBalanceHistoryError(const QString &error)
+{
+    qWarning() << "Balance history error:" << error;
+}
+
+void MainWindow::onAdminTabActivated()
+{
+    m_adminClient->getSystemStatus();
+}
+
+void MainWindow::onUpdateInstrumentClicked()
+{
+    common::Instrument instr;
+    uint64_t id = ui->instrument_id->text().toULongLong();
+
+    // Заполняем поля инструмента
+    if (id > 0) instr.setId_proto(id);
+    instr.setSymbol(ui->instrument_symbol->text());
+    instr.setName(ui->instrument_name->text());
+
+    QStringList tickParts = ui->instrument_tick_size->text().split('.');
+    instr.mutTickSize().setUnits(tickParts.value(0).toInt());
+    instr.mutTickSize().setNanos(tickParts.size() > 1 ? tickParts[1].leftJustified(9, '0').left(9).toInt() : 0);
+
+    QStringList lotParts = ui->instrument_lot_size->text().split('.');
+    instr.mutLotSize().setUnits(lotParts.value(0).toInt());
+    instr.mutLotSize().setNanos(lotParts.size() > 1 ? lotParts[1].leftJustified(9, '0').left(9).toInt() : 0);
+
+    instr.setIsActive(ui->instrument_is_active->text().toInt() != 0);
+
+    // Развилка: добавление или обновление
+    if (id == 0) {
+        m_adminClient->addInstrument(instr);
+    } else {
+        m_adminClient->updateInstrument(instr);
+    }
+}
+
+void MainWindow::onAddBalanceClicked()
+{
+    uint64_t userId = ui->user_id_balance->text().toULongLong();
+    QString text = ui->quantity_balance->text();
+    QStringList parts = text.split('.');
+    common::Decimal amount;
+    amount.setUnits(parts.value(0).toInt());
+    if (parts.size() > 1) amount.setNanos(parts[1].leftJustified(9, '0').left(9).toInt());
+    else amount.setNanos(0);
+    m_adminClient->fundUser(userId, amount);
+}
+
+void MainWindow::onAddPositionClicked()
+{
+    uint64_t userId = ui->user_id_positions->text().toULongLong();
+    uint64_t instId = ui->instrument_id_positions->currentData().toULongLong();
+    QString text = ui->quantity_position->text();
+    QStringList parts = text.split('.');
+    common::Decimal qty;
+    qty.setUnits(parts.value(0).toInt());
+    if (parts.size() > 1) qty.setNanos(parts[1].leftJustified(9, '0').left(9).toInt());
+    else qty.setNanos(0);
+    m_adminClient->addPosition(userId, instId, qty);
+}
+
+void MainWindow::onStartStopTradingClicked()
+{
+    bool newState = !m_adminTradingRunning;
+    m_adminClient->setSystemState(newState);
+}
+
+void MainWindow::onInstrumentAdded() {
+    qDebug() << "Instrument added";
+    // Очищаем поля формы
+    ui->instrument_id->clear();
+    ui->instrument_symbol->clear();
+    ui->instrument_name->clear();
+    ui->instrument_tick_size->clear();
+    ui->instrument_lot_size->clear();
+    ui->instrument_is_active->setText("1");
+    // Обновим список инструментов (необязательно, но полезно)
+    m_adminClient->getSystemStatus();  // если нужно обновить количество активных ордеров и т.д.
+}
+
+void MainWindow::onInstrumentUpdated() {
+    qDebug() << "Instrument updated";
+    // Очистим ID, чтобы можно было добавить новый, не стирая случайно
+    ui->instrument_id->clear();
+    // При желании также обновить список инструментов в других вкладках
+    m_adminClient->getSystemStatus();
+}
+
+void MainWindow::onInstrumentError(const QString &error) { qWarning() << "Instrument error:" << error; }
+void MainWindow::onFundSuccess() { qDebug() << "Fund success"; m_adminClient->getSystemStatus(); }
+void MainWindow::onFundError(const QString &error) { qWarning() << "Fund error:" << error; }
+void MainWindow::onPositionAdded() { qDebug() << "Position added"; }
+void MainWindow::onPositionError(const QString &error) { qWarning() << "Position error:" << error; }
+
+void MainWindow::onSystemStatusReceived(const admin::SystemStatus &status)
+{
+    ui->trading_status_label->setText(status.isRunning() ? "Running" : "Stopped");
+    ui->active_orders_label->setText(QString::number(status.activeOrdersCount()));
+    ui->users_count_label->setText(QString::number(status.totalUsersCount()));
+    ui->system_version_label->setText(status.serverVersion().isEmpty() ? "1.0.0-rc1" : status.serverVersion());
+    ui->uptime_label->setText(status.uptime().isEmpty() ? "0 hours" : status.uptime());
+
+    m_adminTradingRunning = status.isRunning();
+    ui->start_stop_trading_button->setText(status.isRunning() ? "Stop Trading" : "Start Trading");
+}
+
+void MainWindow::onSystemStatusError(const QString &error) { qWarning() << "System status error:" << error; }
+void MainWindow::onSystemStateChanged(bool running)
+{
+    m_adminClient->getSystemStatus(); // обновим метки
+}
+void MainWindow::onSystemStateError(const QString &error) { qWarning() << "System state error:" << error; }

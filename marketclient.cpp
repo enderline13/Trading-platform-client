@@ -142,3 +142,8 @@ void MarketClient::subscribeCandles(uint64_t instrumentId)
 
     m_candleStreams[instrumentId] = streamPtr;
 }
+
+void MarketClient::unsubscribeCandles(uint64_t instrumentId)
+{
+    m_candleStreams.erase(instrumentId); // shared_ptr удалится, стрим закроется
+}

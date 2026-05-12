@@ -8,8 +8,12 @@
 #include <QValueAxis>
 
 #include "auth.qpb.h"
+#include "account.qpb.h"
+#include "admin.qpb.h"
 #include "marketclient.h"
 #include "tradingclient.h"
+#include "accountclient.h"
+#include "adminclient.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -48,6 +52,37 @@ private slots:
     void onCandleUpdate(uint64_t instrumentId, const common::Candle &candle);
     void onLiveCheckBoxToggled(bool checked);
 
+    void onPortfolioTabActivated();
+    void onDepositClicked();
+    void onWithdrawClicked();
+    void onBalanceReceived(const common::Decimal &balance);
+    void onBalanceError(const QString &error);
+    void onPositionsReceived(const account::UserPositions &positions);
+    void onPositionsError(const QString &error);
+    void onBalanceHistoryReceived(const account::BalanceHistory &history);
+    void onBalanceHistoryError(const QString &error);
+    void onDepositSuccess();
+    void onDepositError(const QString &error);
+    void onWithdrawSuccess();
+    void onWithdrawError(const QString &error);
+
+    void onAdminTabActivated();
+    void onUpdateInstrumentClicked();
+    void onAddBalanceClicked();
+    void onAddPositionClicked();
+    void onStartStopTradingClicked();
+    void onInstrumentAdded();
+    void onInstrumentUpdated();
+    void onInstrumentError(const QString &error);
+    void onFundSuccess();
+    void onFundError(const QString &error);
+    void onPositionAdded();
+    void onPositionError(const QString &error);
+    void onSystemStatusReceived(const admin::SystemStatus &status);
+    void onSystemStatusError(const QString &error);
+    void onSystemStateChanged(bool running);
+    void onSystemStateError(const QString &error);
+
 private:
     void populateOrdersTable(const trading::Orders &orders);
     void populateTradesTable(const trading::Trades &trades);
@@ -61,6 +96,10 @@ private:
 
     MarketClient *m_marketClient = nullptr;
     TradingClient *m_tradingClient = nullptr;
+    AccountClient *m_accountClient = nullptr;
+    AdminClient *m_adminClient = nullptr;
+
+    bool m_adminTradingRunning = false;
 
     uint64_t m_currentInstrumentId = 0;
 
