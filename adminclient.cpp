@@ -92,3 +92,57 @@ void AdminClient::setSystemState(bool running)
                 else emit systemStateError(status.message());
             });
 }
+
+void AdminClient::deleteInstrument(uint64_t instrumentId) {
+    admin::DeleteInstrumentRequest req;
+    req.setInstrumentId(instrumentId);
+    auto reply = m_client->DeleteInstrument(req, makeCallOptions(m_token));
+    auto replyPtr = std::shared_ptr<QGrpcCallReply>(reply.release());
+    connect(replyPtr.get(), &QGrpcCallReply::finished, this,
+            [this, replyPtr](const QGrpcStatus &status) {
+                if (status.isOk()) emit instrumentDeleted();
+                else emit deleteInstrumentError(status.message());
+            });
+}
+
+void AdminClient::listUsers() {
+    google::protobuf::Empty empty;
+    auto reply = m_client->ListUsers(empty, makeCallOptions(m_token));
+    auto replyPtr = std::shared_ptr<QGrpcCallReply>(reply.release());
+    connect(replyPtr.get(), &QGrpcCallReply::finished, this,
+            [this, replyPtr](const QGrpcStatus &status) {
+                if (status.isOk()) {
+                    auto resp = replyPtr->read<admin::ListUsersResponse>();
+                    if (resp.has_value()) emit usersListed(resp.value());
+                    else emit listUsersError("Failed to read users");
+                } else {
+                    emit listUsersError(status.message());
+                }
+            });
+}
+
+void AdminClient::setUserRole(uint64_t userId, auth::User::Role role) {
+    admin::SetUserRoleRequest req;
+    req.setUserId(userId);
+    req.setRole(role);
+    auto reply = m_client->SetUserRole(req, makeCallOptions(m_token));
+    auto replyPtr = std::shared_ptr<QGrpcCallReply>(reply.release());
+    connect(replyPtr.get(), &QGrpcCallReply::finished, this,
+            [this, replyPtr](const QGrpcStatus &status) {
+                if (status.isOk()) emit userRoleSet();
+                else emit userRoleSetError(status.message());
+            });
+}
+
+void AdminClient::setUserActive(uint64_t userId, bool active) {
+    admin::SetUserActiveRequest req;
+    req.setUserId(userId);
+    req.setIsActive(active);
+    auto reply = m_client->SetUserActive(req, makeCallOptions(m_token));
+    auto replyPtr = std::shared_ptr<QGrpcCallReply>(reply.release());
+    connect(replyPtr.get(), &QGrpcCallReply::finished, this,
+            [this, replyPtr](const QGrpcStatus &status) {
+                if (status.isOk()) emit userActiveSet();
+                else emit userActiveSetError(status.message());
+            });
+}

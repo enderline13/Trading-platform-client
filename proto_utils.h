@@ -14,7 +14,15 @@ inline QGrpcCallOptions makeCallOptions(const QString &token)
 }
 
 inline QString decimalToString(const common::Decimal &d) {
-    return QString("%1.%2").arg((qlonglong)d.units()).arg((qlonglong)d.nanos(), 9, 10, QChar('0'));
+    bool negative = (d.units() < 0 || d.nanos() < 0);
+    qint64 absUnits = qAbs(static_cast<qint64>(d.units()));
+    qint64 absNanos = qAbs(static_cast<qint64>(d.nanos()));
+    QString result = QString("%1.%2")
+                         .arg(absUnits)
+                         .arg(absNanos, 9, 10, QChar('0'));
+    if (negative)
+        result.prepend('-');
+    return result;
 }
 
 inline qreal decimalToDouble(const common::Decimal &d) {

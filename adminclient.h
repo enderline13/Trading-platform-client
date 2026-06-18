@@ -5,6 +5,7 @@
 #include <QGrpcCallReply>
 #include <memory>
 #include "admin_client.grpc.qpb.h"
+#include "auth.qpb.h"
 #include "common.qpb.h"
 
 class QAbstractGrpcChannel;
@@ -23,8 +24,20 @@ public:
     void addPosition(uint64_t userId, uint64_t instrumentId, const common::Decimal &quantity);
     void getSystemStatus();
     void setSystemState(bool running);
+    void deleteInstrument(uint64_t instrumentId);
+    void listUsers();
+    void setUserRole(uint64_t userId, auth::User::Role role);
+    void setUserActive(uint64_t userId, bool active);
 
 signals:
+    void instrumentDeleted();
+    void deleteInstrumentError(const QString &error);
+    void usersListed(const admin::ListUsersResponse &users);
+    void listUsersError(const QString &error);
+    void userRoleSet();
+    void userRoleSetError(const QString &error);
+    void userActiveSet();
+    void userActiveSetError(const QString &error);
     void instrumentAdded();
     void instrumentUpdated();
     void instrumentError(const QString &error);

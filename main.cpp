@@ -1,12 +1,21 @@
 #include "mainwindow.h"
 
 #include <QApplication>
-#include "admin.qpb.h"
+#include <QStyleFactory>
+#include <QFile>
 
 int main(int argc, char *argv[])
 {
-    QApplication a(argc, argv);
+    QApplication app(argc, argv);
+    QFile styleFile(":/style.qss");
+    if (styleFile.open(QFile::ReadOnly | QFile::Text)) {
+        app.setStyleSheet(styleFile.readAll());
+        styleFile.close();
+    }
+
+    app.setStyle(QStyleFactory::create("Fusion"));
+
     MainWindow w;
     w.show();
-    return a.exec();
+    return app.exec();
 }

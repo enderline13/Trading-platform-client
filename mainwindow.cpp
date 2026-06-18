@@ -25,6 +25,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->trades_history_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui->user_positions_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui->balance_history_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->users_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->user_role_combo->addItems({"USER", "ADMIN"});
 
 
     auto channel = std::make_shared<QGrpcHttp2Channel>(QUrl("http://localhost:50051"));
@@ -101,28 +103,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // При смене инструмента переподписываемся
     connect(ui->instrument_select, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [this](int index) {
-                if (index < 0) return;
-                uint64_t instId = ui->instrument_select->currentData().toULongLong();
-                if (instId == m_currentInstrumentId) return;
-
-                m_currentInstrumentId = instId;
-
-                // Очищаем старые данные
-                ui->bids->setRowCount(0);
-                ui->asks->setRowCount(0);
-                ui->latest_trades->setRowCount(0);
-                ui->best_bid_label->setText("—");
-                ui->best_ask_label->setText("—");
-                ui->sent_order_status->clear();
-
-                // Подписываемся на стримы (обновления в реальном времени)
-                m_marketClient->subscribeOrderBook(instId);
-                m_marketClient->subscribeTrades(instId);
-
-                // Запрашиваем мгновенный снапшот стакана
-                m_marketClient->getOrderBook(instId);
-            });
+            this, &MainWindow::onInstrumentChanged);
 
     // --- Orders tab ---
     // Подключаем сигналы
@@ -176,6 +157,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->live_chart_update, &QCheckBox::toggled,
             this, &MainWindow::onLiveCheckBoxToggled);
 
+    connect(ui->tabWidget, &QTabWidget::currentChanged, this,
+            [this](int index) {
+                if (ui->tabWidget->widget(index) == ui->history_tab) {
+                    // При переходе на вкладку истории сразу запрашиваем ордера
+                    trading::GetOrdersRequest req;
+                    m_tradingClient->getOrders(req);
+                }
+            });
+
 
     // --- Portfolio tab ---
     connect(m_accountClient, &AccountClient::balanceReceived,
@@ -214,6 +204,10 @@ MainWindow::MainWindow(QWidget *parent)
                     m_accountClient->getBalance();
                     m_accountClient->getPositions();
                     m_accountClient->getBalanceHistory();
+                }
+                if (ui->tabWidget->widget(index) == ui->admin_tab) {
+                    onAdminTabActivated();     // уже есть (загружает системный статус)
+                    m_adminClient->listUsers(); // теперь ещё и пользователей
                 }
             });
 
@@ -259,6 +253,48 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->instrument_select_admin, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::onAdminInstrumentSelected);
+
+    // Удаление инструмента
+    connect(ui->delete_instrument_button, &QPushButton::clicked, this, &MainWindow::onDeleteInstrumentClicked);
+    connect(m_adminClient, &AdminClient::instrumentDeleted, this, [this]() {
+        QMessageBox::information(this, "Успех", "Инструмент удалён");
+        m_marketClient->listInstruments(); // обновить все списки
+    });
+    connect(m_adminClient, &AdminClient::deleteInstrumentError, this, [this](const QString &err) {
+        QMessageBox::warning(this, "Ошибка", err);
+    });
+
+    // Пользователи
+    connect(ui->refresh_users_button, &QPushButton::clicked, this, [this]() {
+        m_adminClient->listUsers();
+    });
+    connect(m_adminClient, &AdminClient::usersListed, this, &MainWindow::onUsersListed);
+    connect(m_adminClient, &AdminClient::listUsersError, this, [this](const QString &err) {
+        QMessageBox::warning(this, "Ошибка", err);
+    });
+
+    connect(ui->apply_user_button, &QPushButton::clicked, this, &MainWindow::onApplyUserChanges);
+    connect(m_adminClient, &AdminClient::userRoleSet, this, [this]() {
+        m_adminClient->listUsers(); // обновить таблицу
+    });
+    connect(m_adminClient, &AdminClient::userRoleSetError, this, [this](const QString &err) {
+        QMessageBox::warning(this, "Ошибка", err);
+    });
+    connect(m_adminClient, &AdminClient::userActiveSet, this, [this]() {
+        m_adminClient->listUsers();
+    });
+    connect(m_adminClient, &AdminClient::userActiveSetError, this, [this](const QString &err) {
+        QMessageBox::warning(this, "Ошибка", err);
+    });
+
+    connect(m_adminClient, &AdminClient::fundSuccess,
+            this, &MainWindow::onFundSuccess);
+    connect(m_adminClient, &AdminClient::fundError,
+            this, &MainWindow::onFundError);
+    connect(m_adminClient, &AdminClient::positionAdded,
+            this, &MainWindow::onPositionAdded);
+    connect(m_adminClient, &AdminClient::positionError,
+            this, &MainWindow::onPositionError);
 }
 
 MainWindow::~MainWindow()
@@ -281,9 +317,10 @@ void MainWindow::onInstrumentsLoaded(const market::InstrumentsList &instruments)
         ui->instrument_select->addItem(symbol, QVariant::fromValue(id));
     }
     ui->instrument_select->blockSignals(false);
-
     if (ui->instrument_select->count() > 0) {
         ui->instrument_select->setCurrentIndex(0);
+        // Принудительно инициируем загрузку первого инструмента
+        onInstrumentChanged(0);
     }
 
     // Кэшируем
@@ -330,6 +367,19 @@ void MainWindow::onOrderBookSnapshot(uint64_t instrumentId, const market::OrderB
     update.setBids(book.bids());
     update.setAsks(book.asks());
     onOrderBookUpdate(instrumentId, update);
+
+    // Для P&L: вычисляем середину спреда
+    if (!book.bids().isEmpty() && !book.asks().isEmpty()) {
+        double bestBid = decimalToDouble(book.bids().first().price());
+        double bestAsk = decimalToDouble(book.asks().first().price());
+        double mid = (bestBid + bestAsk) / 2.0;
+        m_lastPrices[instrumentId] = mid; // сохраняем mid как последнюю цену
+    }
+
+    // Если вкладка портфеля активна, перерисуем позиции
+    if (ui->tabWidget->currentWidget() == ui->portfolio_tab) {
+        refreshPositionsTable();
+    }
 }
 
 void MainWindow::onOrderBookUpdate(uint64_t instrumentId, const market::OrderBookUpdate &update)
@@ -373,19 +423,30 @@ void MainWindow::onTradeReceived(uint64_t instrumentId, const common::Trade &tra
     int row = 0;
     ui->latest_trades->insertRow(row);
 
-    // Время
     QDateTime dt = QDateTime::fromSecsSinceEpoch(trade.executedAt().seconds());
     ui->latest_trades->setItem(row, 0, new QTableWidgetItem(dt.toString("hh:mm:ss")));
-
-    // Цена
     ui->latest_trades->setItem(row, 1, new QTableWidgetItem(decimalToString(trade.price())));
-
-    // Количество
     ui->latest_trades->setItem(row, 2, new QTableWidgetItem(decimalToString(trade.quantity())));
 
-    // Ограничение количества строк
     while (ui->latest_trades->rowCount() > 50)
         ui->latest_trades->removeRow(ui->latest_trades->rowCount() - 1);
+
+    // Сохраняем последнюю цену для P&L
+   m_lastPrices[instrumentId] = decimalToDouble(trade.price());
+
+    // Показываем уведомление в статусбаре
+    QString symbol;
+    for (const auto &inst : m_cachedInstruments.instruments()) {
+        if (inst.id_proto() == instrumentId) {
+            symbol = inst.symbol();
+            break;
+        }
+    }
+    if (symbol.isEmpty()) symbol = QString::number(instrumentId);
+    ui->statusbar->showMessage(
+        QString("Trade: %1 @ %2 x %3")
+            .arg(symbol, decimalToString(trade.price()), decimalToString(trade.quantity())),
+        3000);
 }
 
 void MainWindow::onSendOrderClicked()
@@ -500,6 +561,10 @@ void MainWindow::onOrdersReceived(const trading::Orders &orders)
         if (order.status() == common::Order::OrderStatus::NEW || order.status() == common::Order::OrderStatus::PARTIALLY_FILLED) {
             ui->order_id_for_cancel->addItem(QString::number(order.id_proto()), QVariant::fromValue(order.id_proto()));
         }
+    }
+
+    if (ui->tabWidget->currentWidget() == ui->history_tab) {
+        onRefreshHistoryClicked();
     }
 }
 
@@ -628,23 +693,23 @@ void MainWindow::populateTradesTable(const trading::Trades &trades)
 void MainWindow::setupChart()
 {
     m_chart = new QChart();
-    m_chart->setTitle("Candlestick Chart");
+    m_chart->setTitle("График свечей");
     m_chart->setAnimationOptions(QChart::SeriesAnimations);
 
     m_candleSeries = new QCandlestickSeries();
-    m_candleSeries->setName("Price");
+    m_candleSeries->setName("Цена");
     m_candleSeries->setIncreasingColor(QColor(Qt::green));
     m_candleSeries->setDecreasingColor(QColor(Qt::red));
     m_chart->addSeries(m_candleSeries);
 
     m_axisX = new QDateTimeAxis();
     m_axisX->setFormat("dd.MM hh:mm");
-    m_axisX->setTitleText("Time");
+    m_axisX->setTitleText("Время");
     m_chart->addAxis(m_axisX, Qt::AlignBottom);
     m_candleSeries->attachAxis(m_axisX);
 
     m_axisY = new QValueAxis();
-    m_axisY->setTitleText("Price");
+    m_axisY->setTitleText("Цена");
     m_axisY->setLabelFormat("%.2f");
     m_chart->addAxis(m_axisY, Qt::AlignLeft);
     m_candleSeries->attachAxis(m_axisY);
@@ -756,12 +821,11 @@ void MainWindow::onCandleUpdate(uint64_t instrumentId, const common::Candle &can
         m_candleSeries->append(set);
     }
 
-    // Расширяем ось X до новой свечи (и немного влево, если надо)
-    QDateTime currentMax = m_axisX->max();
+    // Расширяем ось X: показываем последний час
     QDateTime newMax = QDateTime::fromMSecsSinceEpoch(newTime);
-    if (newMax > currentMax) {
-        m_axisX->setMax(newMax);
-    }
+    m_axisX->setMax(newMax);
+    QDateTime windowMin = newMax.addSecs(-3600);
+    m_axisX->setMin(windowMin);
     // Подстраиваем ось Y
     qreal high = decimalToDouble(candle.high());
     qreal low  = decimalToDouble(candle.low());
@@ -791,9 +855,10 @@ void MainWindow::onBalanceReceived(const common::Decimal &balance)
 
 void MainWindow::onPositionsReceived(const account::UserPositions &positions)
 {
-    ui->user_positions_table->setRowCount(positions.positions().size());
-    for (int i = 0; i < positions.positions().size(); ++i) {
-        const auto &pos = positions.positions().at(i);
+    const auto &list = positions.positions();
+    ui->user_positions_table->setRowCount(list.size());
+    for (int i = 0; i < list.size(); ++i) {
+        const auto &pos = list.at(i);
         // Инструмент
         QString symbol;
         for (const auto &inst : m_cachedInstruments.instruments()) {
@@ -806,9 +871,58 @@ void MainWindow::onPositionsReceived(const account::UserPositions &positions)
         ui->user_positions_table->setItem(i, 0, new QTableWidgetItem(symbol));
         ui->user_positions_table->setItem(i, 1, new QTableWidgetItem(decimalToString(pos.quantity())));
         ui->user_positions_table->setItem(i, 2, new QTableWidgetItem(decimalToString(pos.averagePrice())));
+
+        // Расчёт и отображение P&L
+        double lastPrice = m_lastPrices.value(pos.instrumentId(), 0.0);
+        QString pnlText = "—";
+        if (lastPrice != 0.0) {
+            double avgPrice = decimalToDouble(pos.averagePrice());
+            double qty = decimalToDouble(pos.quantity());
+            double pnl = (lastPrice - avgPrice) * qty;
+            pnlText = QString::number(pnl, 'f', 8); // или decimalToString, если хотите Decimal обратно
+        }
+        ui->user_positions_table->setItem(i, 3, new QTableWidgetItem(pnlText));
     }
 
-    m_accountClient->getBalanceHistory();
+    m_cachedPositions = positions;
+    refreshPositionsTable();
+
+    // Запросим стаканы для всех позиций, чтобы обновить последние цены
+    for (const auto &pos : positions.positions()) {
+        m_marketClient->getOrderBook(pos.instrumentId());
+    }
+}
+
+void MainWindow::refreshPositionsTable()
+{
+    const auto &list = m_cachedPositions.positions();
+    ui->user_positions_table->setRowCount(list.size());
+    for (int i = 0; i < list.size(); ++i) {
+        const auto &pos = list.at(i);
+        // Инструмент
+        QString symbol;
+        for (const auto &inst : m_cachedInstruments.instruments()) {
+            if (inst.id_proto() == pos.instrumentId()) {
+                symbol = inst.symbol();
+                break;
+            }
+        }
+        if (symbol.isEmpty()) symbol = QString::number(pos.instrumentId());
+        ui->user_positions_table->setItem(i, 0, new QTableWidgetItem(symbol));
+        ui->user_positions_table->setItem(i, 1, new QTableWidgetItem(decimalToString(pos.quantity())));
+        ui->user_positions_table->setItem(i, 2, new QTableWidgetItem(decimalToString(pos.averagePrice())));
+
+        // P&L
+        double lastPrice = m_lastPrices.value(pos.instrumentId(), 0.0);
+        double avgPrice = decimalToDouble(pos.averagePrice());
+        double qty = decimalToDouble(pos.quantity());
+        QString pnlText = "—";
+        if (lastPrice != 0.0 && pos.averagePrice().units() > 0) {
+            double pnl = (lastPrice - avgPrice) * qty;
+            pnlText = QString::number(pnl, 'f', 2);
+        }
+        ui->user_positions_table->setItem(i, 3, new QTableWidgetItem(pnlText));
+    }
 }
 
 void MainWindow::onBalanceHistoryReceived(const account::BalanceHistory &history)
@@ -934,6 +1048,30 @@ void MainWindow::onUpdateInstrumentClicked()
     }
 }
 
+void MainWindow::onInstrumentChanged(int index)
+{
+    if (index < 0) return;
+    uint64_t instId = ui->instrument_select->currentData().toULongLong();
+    if (instId == m_currentInstrumentId) return;
+
+    m_currentInstrumentId = instId;
+
+    // Очищаем старые данные
+    ui->bids->setRowCount(0);
+    ui->asks->setRowCount(0);
+    ui->latest_trades->setRowCount(0);
+    ui->best_bid_label->setText("—");
+    ui->best_ask_label->setText("—");
+    ui->sent_order_status->clear();
+
+    // Подписываемся на стримы
+    m_marketClient->subscribeOrderBook(instId);
+    m_marketClient->subscribeTrades(instId);
+
+    // Запрашиваем мгновенный снапшот стакана
+    m_marketClient->getOrderBook(instId);
+}
+
 void MainWindow::onAddBalanceClicked()
 {
     uint64_t userId = ui->user_id_balance->text().toULongLong();
@@ -976,6 +1114,8 @@ void MainWindow::onInstrumentAdded() {
     ui->instrument_is_active->setText("1");
     // Обновим список инструментов (необязательно, но полезно)
     m_adminClient->getSystemStatus();  // если нужно обновить количество активных ордеров и т.д.
+
+    m_marketClient->listInstruments();
 }
 
 void MainWindow::onInstrumentUpdated() {
@@ -984,13 +1124,51 @@ void MainWindow::onInstrumentUpdated() {
     ui->instrument_id->clear();
     // При желании также обновить список инструментов в других вкладках
     m_adminClient->getSystemStatus();
+
+    m_marketClient->listInstruments();
 }
 
 void MainWindow::onInstrumentError(const QString &error) { showError("Ошибка получения инструмента:" + error); }
-void MainWindow::onFundSuccess() { qDebug() << "Fund success"; m_adminClient->getSystemStatus(); }
-void MainWindow::onFundError(const QString &error) { showError("Ошибка добавления баланса:" + error); }
-void MainWindow::onPositionAdded() { qDebug() << "Position added"; }
-void MainWindow::onPositionError(const QString &error) { showError("Ошибка во время получения позиции:" + error); }
+void MainWindow::onFundSuccess()
+{
+    ui->fund_status_label->setText("Balance updated successfully");
+    ui->fund_status_label->setStyleSheet("color: green; font-weight: bold;");
+    // Через 3 секунды очистим сообщение
+    QTimer::singleShot(3000, this, [this]() {
+        ui->fund_status_label->clear();
+        ui->fund_status_label->setStyleSheet("");
+    });
+}
+
+void MainWindow::onFundError(const QString &error)
+{
+    ui->fund_status_label->setText("Error: " + error);
+    ui->fund_status_label->setStyleSheet("color: red; font-weight: bold;");
+    QTimer::singleShot(5000, this, [this]() {
+        ui->fund_status_label->clear();
+        ui->fund_status_label->setStyleSheet("");
+    });
+}
+
+void MainWindow::onPositionAdded()
+{
+    ui->position_status_label->setText("Position added successfully");
+    ui->position_status_label->setStyleSheet("color: green; font-weight: bold;");
+    QTimer::singleShot(3000, this, [this]() {
+        ui->position_status_label->clear();
+        ui->position_status_label->setStyleSheet("");
+    });
+}
+
+void MainWindow::onPositionError(const QString &error)
+{
+    ui->position_status_label->setText("Error: " + error);
+    ui->position_status_label->setStyleSheet("color: red; font-weight: bold;");
+    QTimer::singleShot(5000, this, [this]() {
+        ui->position_status_label->clear();
+        ui->position_status_label->setStyleSheet("");
+    });
+}
 
 void MainWindow::onSystemStatusReceived(const admin::SystemStatus &status)
 {
@@ -1040,3 +1218,41 @@ void MainWindow::onAdminInstrumentSelected(int index)
         }
     }
 }
+
+void MainWindow::onDeleteInstrumentClicked() {
+    uint64_t id = ui->instrument_id->text().toULongLong();
+    if (id == 0) {
+        QMessageBox::warning(this, "Ошибка", "Введите ID инструмента");
+        return;
+    }
+    m_adminClient->deleteInstrument(id);
+}
+
+void MainWindow::onUsersListed(const admin::ListUsersResponse &users) {
+    ui->users_table->setRowCount(users.users().size());
+    for (int i = 0; i < users.users().size(); ++i) {
+        const auto &u = users.users().at(i);
+        ui->users_table->setItem(i, 0, new QTableWidgetItem(QString::number(u.id_proto())));
+        ui->users_table->setItem(i, 1, new QTableWidgetItem(u.username()));
+        ui->users_table->setItem(i, 2, new QTableWidgetItem(u.email()));
+        ui->users_table->setItem(i, 3, new QTableWidgetItem(u.role() == auth::User::Role::ADMIN ? "ADMIN" : "USER"));
+        ui->users_table->setItem(i, 4, new QTableWidgetItem(u.isActive() ? "Да" : "Нет"));
+    }
+}
+
+void MainWindow::onApplyUserChanges() {
+    int row = ui->users_table->currentRow();
+    if (row < 0) {
+        QMessageBox::warning(this, "Ошибка", "Выберите пользователя в таблице");
+        return;
+    }
+    uint64_t userId = ui->users_table->item(row, 0)->text().toULongLong();
+    auth::User::Role newRole = (ui->user_role_combo->currentText() == "ADMIN")
+                                   ? auth::User::Role::ADMIN : auth::User::Role::USER;
+    bool active = ui->user_active_check->isChecked();
+
+    // Применяем оба изменения
+    m_adminClient->setUserRole(userId, newRole);
+    m_adminClient->setUserActive(userId, active);
+}
+

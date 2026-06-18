@@ -30,6 +30,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         adminclient.h adminclient.cpp
         proto_utils.h
         logindialog.h logindialog.cpp logindialog.ui
+        resources.qrc
+        style.qss
     )
 endif()
 

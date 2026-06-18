@@ -1,0 +1,203 @@
+/* ---------- Глобальные ---------- */
+QWidget {
+    color: black;
+    font-family: "Segoe UI", "Roboto", sans-serif;
+    font-size: 13px;
+}
+QMainWindow {
+    background-color: #f0f0f0;
+}
+QLabel {
+    color: black;
+}
+QLineEdit, QComboBox, QTableWidget, QHeaderView {
+    background-color: white;
+    color: black;
+}
+
+QPushButton {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 4px 12px;          /* уменьшили с 8px 16px */
+    border-radius: 5px;
+    font-weight: bold;
+    font-size: 11px;
+    min-height: 20px;           /* чтобы кнопка не сжималась до нуля */
+}
+QPushButton:hover {
+    background-color: #2980b9;
+}
+QPushButton:pressed {
+    background-color: #1c6ea4;
+}
+QPushButton:disabled {
+    background-color: #bdc3c7;
+    color: #7f8c8d;
+}
+
+/* ---------- Таблицы ---------- */
+QTableWidget {
+    background-color: white;
+    alternate-background-color: #f8f9fa;
+    gridline-color: #dcdcdc;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+}
+QHeaderView::section {
+    background-color: #2c3e50;
+    color: white;
+    padding: 6px;
+    border: none;
+    font-weight: bold;
+}
+QTableWidget::item:selected {
+    background-color: #3498db;
+    color: white;
+}
+
+/* ---------- Вкладки ---------- */
+QTabWidget::pane {
+    border: 1px solid #bdc3c7;
+    background: white;
+    border-radius: 4px;
+}
+QTabBar::tab {
+    background: #ecf0f1;
+    padding: 8px 16px;
+    border: 1px solid #bdc3c7;
+    border-bottom: none;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    margin-right: 2px;
+}
+QTabBar::tab:selected {
+    background: white;
+    font-weight: bold;
+}
+
+/* ---------- Поля ввода ---------- */
+QLineEdit {
+    padding: 6px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    background: white;
+}
+QLineEdit:focus {
+    border-color: #3498db;
+}
+
+/* ---------- Комбобоксы ---------- */
+QComboBox {
+    padding: 6px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    background: white;
+}
+QComboBox:hover {
+    border-color: #3498db;
+}
+QComboBox::drop-down {
+    border-left: 1px solid #bdc3c7;
+    width: 20px;
+}
+
+/* Выпадающий список */
+QComboBox QAbstractItemView {
+    background-color: white;
+    border: 1px solid #bdc3c7;
+    outline: none;                      /* убирает пунктирную рамку */
+    selection-background-color: #3498db;
+    selection-color: white;
+}
+
+/* Каждый элемент в списке */
+QComboBox QAbstractItemView::item {
+    padding: 6px;
+    background-color: transparent;
+    color: black;
+}
+
+/* При наведении на элемент */
+QComboBox QAbstractItemView::item:hover {
+    background-color: #e0f0ff;
+    color: black;
+}
+
+/* Выделенный элемент (при клике) */
+QComboBox QAbstractItemView::item:selected {
+    background-color: #3498db;
+    color: white;
+}
+
+/* ---------- Статусбар ---------- */
+QStatusBar {
+    background: #2c3e50;
+    color: white;
+    padding: 4px;
+}
+
+/* Чекбоксы */
+QCheckBox {
+    color: black;
+    background: transparent;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    background: white;
+    border: 1px solid #bdc3c7;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked {
+    background-color: #3498db;
+    border-color: #3498db;
+}
+
+/* Поля ввода даты и времени */
+QDateEdit, QDateTimeEdit, QTimeEdit {
+    padding: 6px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    background: white;
+    color: black;
+}
+
+/* Угловой виджет таблицы (место стыка горизонтальной и вертикальной прокрутки) */
+QTableCornerButton {
+    background: #2c3e50;   /* под цвет хедера таблицы */
+    border: none;
+}
+
+/* Полосы прокрутки */
+QScrollBar:vertical {
+    background: #f0f0f0;
+    width: 10px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #bdc3c7;
+    min-height: 20px;
+    border-radius: 5px;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+QScrollBar:horizontal {
+    background: #f0f0f0;
+    height: 10px;
+    margin: 0;
+}
+QScrollBar::handle:horizontal {
+    background: #bdc3c7;
+    min-width: 20px;
+    border-radius: 5px;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+/* Фон для диалогов */
+QDialog {
+    background-color: #ecf0f1;
+}

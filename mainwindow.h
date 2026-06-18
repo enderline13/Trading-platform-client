@@ -83,8 +83,13 @@ private slots:
     void onSystemStateChanged(bool running);
     void onSystemStateError(const QString &error);
     void onAdminInstrumentSelected(int index);
+    void refreshPositionsTable();
+    void onDeleteInstrumentClicked();
+    void onUsersListed(const admin::ListUsersResponse &users);
+    void onApplyUserChanges();
 
 private:
+    void onInstrumentChanged(int index);
     void populateOrdersTable(const trading::Orders &orders);
     void populateTradesTable(const trading::Trades &trades);
     void setupChart();
@@ -119,5 +124,9 @@ private:
     QSet<uint64_t> m_userOrderIds;
 
     void showError(const QString &message);
+
+    QHash<uint64_t, double> m_lastPrices;
+
+    account::UserPositions m_cachedPositions;
 };
 #endif // MAINWINDOW_H
